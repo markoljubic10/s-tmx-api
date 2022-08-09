@@ -1,0 +1,40 @@
+name: 1$(rev:.r).$(Rev:r)
+
+trigger:
+- master
+- development
+- hotfix
+- feature/*
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+resources:
+  repositories:
+  - repository: CICD_Template
+    type: git
+    name: CICD_Template
+
+variables:
+- name: application.name
+  value: '$(Build.Repository.Name)'
+
+stages:
+- stage: Build
+  jobs:
+    - job: buildJob
+      variables:
+      - group: sandboxDeploy
+      - name: enc_key
+        value: $[variables.enckey]
+      - name: csl_env
+        value: $[variables.cslEnvironment]
+      steps:
+        - checkout: self
+        - checkout: CICD_Template
+        - template: build/maven-packaging.yml@CICD_Template
+          parameters:
+            applicationName: $(application.name)
+            MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
+            encKey: $(enc_key)
+            cslEnv: $(csl_env)
