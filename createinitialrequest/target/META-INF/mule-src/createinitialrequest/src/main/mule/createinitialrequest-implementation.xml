@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+	<file:config name="File_Config" doc:name="File Config" doc:id="e939598b-393e-451c-896d-30992b6e87b2" />
+    <file:config name="File_Config1" doc:name="File Config" doc:id="3dbba899-e117-4dd6-8e8a-3b6527de03a1" />
+	<flow name="createInitialRequest" doc:id="df0a41f0-fe9e-4069-ab93-0355cd5cd9cd">
+        <scheduler doc:name="Scheduler" doc:id="38b017d6-2cb6-4a3a-b4c4-5e6ddd2c8ea7">
+			<scheduling-strategy>
+				<fixed-frequency />
+			</scheduling-strategy>
+		</scheduler>
+		<file:read doc:name="Read Excel file" doc:id="0700e642-b917-47e0-877a-467905855ebc" path="/Users/mljubic/Documents/createInitial/Request data 202206.xlsx" outputMimeType="application/xlsx" config-ref="File_Config" />
+        <ee:transform doc:name="Store Data" doc:id="ab3e1210-e9a9-4e2a-aac0-322b450964bb">
+            <ee:message />
+            <ee:variables>
+                <ee:set-variable variableName="wholeFileData"><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <ee:transform doc:name="Extract Keys" doc:id="88868ee6-554c-4225-ade9-5078c5fbea36">
+            <ee:message />
+            <ee:variables>
+                <ee:set-variable variableName="sheets"><![CDATA[%dw 2.0
+output application/json
+---
+payload pluck $$]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+		<foreach doc:name="For Each" doc:id="e9e8c01b-846a-4606-a705-cefed53100e6" collection='#[[&#10;  "Request"&#10;]]'>
+            <ee:transform doc:name="Extract one Sheet" doc:id="841f08e6-13bb-4b93-9098-f0f9071e3d17">
+                <ee:message>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable variableName="env"><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-variable>
+					<ee:set-variable variableName="requestPayload" ><![CDATA[%dw 2.0
+output application/csv
+---
+vars.wholeFileData[payload]]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+            <ee:transform doc:name="Transform Message" doc:id="4ecdff85-40c6-469a-b3a6-c351199a6e1f">
+				<ee:message>
+				</ee:message>
+				<ee:variables>
+					<ee:set-variable variableName="packageLineId" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.requestPayload.PackageLineId]]></ee:set-variable>
+					<ee:set-variable variableName="initialRequestId" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.requestPayload.InitialRequestId distinctBy $]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+			<foreach doc:name="For Each" doc:id="2ca34050-d14f-49af-b855-fa8859a8a25f" collection='#[vars.initialRequestId]'>
+				<ee:transform doc:name="Transform Message" doc:id="c4b2812c-1427-40be-9fe5-32388e890cb5">
+                    <ee:message>
+                    </ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="data"><![CDATA[%dw 2.0
+output application/json
+---
+vars.requestPayload filter ($.InitialRequestId == payload) map ((row) -> {
+"CreateInitialRequest": {
+    "objRTLRequest": {
+      "Identification": {
+      	"OrganisationUnit": "",
+        "OrganisationCode": row.OrganisationCode,
+        "Password": "",
+        "ApplicationName": row.ApplicationName
+      },
+      "MediumId": row.MediumId,
+      "datumVan": row.datumVan,
+      "datumTot": row.datumTot,
+      "objInitialRequest": {
+        "InitialRequestId": row.InitialRequestId,
+        "ContactPersonAgencyEmail": row.ContactPersonAgencyEmail,
+        "ContactPersonAgencyName": row.ContactPersonAgencyName,
+        "OrderId": row.OrderId,
+        "OrderDescr": row.OrderDescr,
+        "OrderBudget": row.OrderBudget,
+        "AdvertiserName": row.AdvertiserName,
+        "IntoMartChannelCode": row.IntoMartChannelCode,
+        "Remarks": row.Remarks,
+        "ProductDescr": row.ProductDescr,
+        "ConcernName": row.ConcernName,
+        "PurchaseOrderNumber": row.PurchaseOrderNumber,
+        "SubOrderRequestList": ""
+        }
+        }
+        }
+        }
+ )]]></ee:set-variable>
+					</ee:variables>
+                </ee:transform>
+				<ee:transform doc:name="Transform Message" doc:id="bd8458c7-1182-4351-8675-eb60051caf4e">
+					<ee:message>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="spotsPayload"><![CDATA[%dw 2.0
+output application/csv
+---
+vars.wholeFileData["Spots"]]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<ee:transform doc:name="Transform Message" doc:id="c5ccc3dd-3799-43fd-a130-f3b34dd3243b" >
+					<ee:message >
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="SubOrderRequest" ><![CDATA[%dw 2.0
+import * from dw::core::Strings
+output application/json
+
+---
+vars.requestPayload filter ($.InitialRequestId == payload) map {
+	"SubOrderRequest" : {
+		"PackageCode": $.PackageCode,
+	    "PackageDesc": $.PackageDesc,
+	    "IntomartChannelCode": $.IntomartChannelCode,
+	    "IntoMartTargetGroup": $.IntoMartTargetGroup,
+	    "SuborderStartdate": $.SuborderStartdate,
+	    "SuborderEnddate": $.SuborderEnddate,
+	    "SuborderBudget": $.SuborderBudget,
+	    "SpotlengthList" : $.Spotlength substringBy $ == "+"  map {
+		    "SpotLength":{
+		        "Spotlength": $
+		     }
+		},
+	    "PackageLineId"	: $.PackageLineId
+	} 
+}]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<foreach doc:name="For Each" doc:id="a5de9cb6-41d5-4ff9-aa42-d1da9fb7c5ef" collection="#[vars.SubOrderRequest.SubOrderRequest.PackageLineId]">
+					<ee:transform doc:name="Transform Message" doc:id="cf721e05-3d6f-4aff-ac41-5461c272046e">
+					<ee:message>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="filteredSpotRows"><![CDATA[%dw 2.0
+output application/json
+---
+vars.spotsPayload filter ($.PackageLineId == payload) map {
+	"SchedDate": $.SchedDate,
+	"BreakId" : $.BreakId,
+	"Position": $.Position,
+	"IntomartChannelId" : $.IntomartChannelId,
+	"BlockTime": $.BlockTime,
+	"Priority" : $.Priority,
+	"ProgrammeBefore": $.ProgrammeBefore,
+	"ProgrammeAfter" : $.ProgrammeAfter,
+}
+
+]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+					<ee:transform doc:name="Transform Message" doc:id="2577d5f4-659e-4bcb-8026-1a246e24cc5a" >
+						<ee:message >
+						</ee:message>
+						<ee:variables >
+							<ee:set-variable variableName="spotList" ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"PackageLineId" : payload,
+	"SpotList" : vars.filteredSpotRows
+}]]></ee:set-variable>
+						</ee:variables>
+					</ee:transform>
+					<ee:transform doc:name="Transform Message" doc:id="87d397a5-24f8-4eb4-8aea-f199b8e78ab9" >
+						<ee:message >
+						</ee:message>
+						<ee:variables >
+							<ee:set-variable variableName="spotOutput" ><![CDATA[%dw 2.0
+
+output application/json
+
+---
+
+vars.spotOutput default[] ++ [vars.spotList] ]]></ee:set-variable>
+						</ee:variables>
+					</ee:transform>
+            </foreach>
+				<ee:transform doc:name="Transform Message" doc:id="e306d9a0-a103-49cf-9208-4b59792e0322">
+					<ee:message>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="SubOrderRequest" ><![CDATA[%dw 2.0
+output application/json 
+fun findSpot(id: String)
+= 
+vars.spotOutput filter ($.PackageLineId == id) 
+---
+vars.requestPayload filter ($.InitialRequestId == payload) map {
+	    "SubOrderRequest" : {
+		"PackageCode": $.PackageCode,
+	    "PackageDesc": $.PackageDesc,
+	    "IntomartChannelCode": $.IntomartChannelCode,
+	    "IntoMartTargetGroup": $.IntoMartTargetGroup,
+	    "SuborderStartdate": $.SuborderStartdate,
+	    "SuborderEnddate": $.SuborderEnddate,
+	    "SuborderBudget": $.SuborderBudget,
+	    "SpotlengthList" : [
+         	"SpotLength": {	
+         		"Spotlength" : $.Spotlength
+         	}    	
+	    ],
+	    SpotList : if(findSpot($.PackageLineId)[0].SpotList == [] ) null 
+        else findSpot($.PackageLineId)[0].SpotList map ((item, index) -> 
+    SpotRequest : {
+        SchedDate: item.SchedDate,
+        "BreakId": item.BreakId,
+            "Position": item.Position,
+            "IntomartChannelId": item.IntomartChannelId,
+            "BlockTime": item.BlockTime,
+            "Priority": item.SchedDaPriorityte,
+            "ProgrammeBefore": item.ProgrammeBefore,
+            "ProgrammeAfter" : item.ProgrammeAfter
+    } 
+    
+     ),
+     "SaleshouseTargetgroup": "",
+     "CPM": null,
+     "Spotlength": null	
+}
+}]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<ee:transform doc:name="Transform Message" doc:id="ced12e06-f9c9-4b24-9722-724c38f810a6" >
+					<ee:message >
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="request" ><![CDATA[%dw 2.0
+output application/json
+---
+"CIRMessage": {
+	"CreateInitialRequest": {
+	    "objRTLRequest": {
+	      "Identification": {
+	        "OrganisationUnit": vars.data[0].CreateInitialRequest.objRTLRequest.Identification.OrganisationUnit,
+	        "OrganisationCode": vars.data[0].CreateInitialRequest.objRTLRequest.Identification.OrganisationCode,
+	        "Password": vars.data[0].CreateInitialRequest.objRTLRequest.Identification.Password,
+	        "ApplicationName": vars.data[0].CreateInitialRequest.objRTLRequest.Identification.ApplicationName
+	      },
+	      "MediumId": vars.data[0].CreateInitialRequest.objRTLRequest.MediumId,
+	      "datumVan": vars.data[0].CreateInitialRequest.objRTLRequest.datumVan,
+	      "datumTot": vars.data[0].CreateInitialRequest.objRTLRequest.datumTot,
+	      "objInitialRequest": {
+	        "InitialRequestId": vars.data[0].CreateInitialRequest.objRTLRequest.objInitialRequest.InitialRequestId,
+	        "ContactPersonAgencyEmail": vars.data[0].CreateInitialRequest.objRTLRequest.objInitialRequest.ContactPersonAgencyEmail,
+	        "ContactPersonAgencyName": vars.data[0].CreateInitialRequest.objRTLRequest.objInitialRequest.ContactPersonAgencyName,
+	        "OrderId": vars.data[0].CreateInitialRequest.objRTLRequest.objInitialRequest.OrderId,
+	        "OrderDescr": vars.data[0].CreateInitialRequest.objRTLRequest.objInitialRequest.OrderDescr,
+	        "OrderBudget": vars.data[0].CreateInitialRequest.objRTLRequest.objInitialRequest.OrderBudget,
+	        "AdvertiserName": vars.data[0].CreateInitialRequest.objRTLRequest.objInitialRequest.AdvertiserName,
+	        "IntoMartChannelCode": vars.data[0].CreateInitialRequest.objRTLRequest.objInitialRequest.IntoMartChannelCode,
+	        "Remarks": vars.data[0].CreateInitialRequest.objRTLRequest.objInitialRequest.Remarks,
+	        "ProductDescr": vars.data[0].CreateInitialRequest.objRTLRequest.objInitialRequest.ProductDescr,
+	        "ConcernName": vars.data[0].CreateInitialRequest.objRTLRequest.objInitialRequest.ConcernName,
+	        "PurchaseOrderNumber": vars.data[0].CreateInitialRequest.objRTLRequest.objInitialRequest.PurchaseOrderNumber,
+	        "SubOrderRequestList": vars.SubOrderRequest
+	        }
+	        }
+	        }
+}]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<ee:transform doc:name="Transform Message" doc:id="c72886d1-fb11-441a-a827-c9386e6fd247" >
+					<ee:message >
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="name" ><![CDATA["AdsalesCIR_" ++ payload ++ "_" ++ now() as String {format: "yyyyMMddHHmmssSSS"}
+
+]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<file:write doc:name="Write" doc:id="77fb5cc2-9028-43d3-b6be-846d33840453" config-ref="File_Config1" mode="CREATE_NEW" path='#["/Users/mljubic/Documents/createInitial/requestFilesTestAdSales1/" ++ vars.name]'>
+					<file:content ><![CDATA[#[vars.request]]]></file:content>
+				</file:write>
+				<logger level="INFO" doc:name="Logger" doc:id="8dadee4f-fc81-490c-8137-cae00d3c3019" message="#[vars.name]"/>
+				<remove-variable doc:name="Remove Variable" doc:id="1bb62fd8-f16f-4cfe-b1ce-c705d849beae" variableName="spotOutput"/>
+			</foreach>
+        </foreach>
+    </flow>
+	</mule>
